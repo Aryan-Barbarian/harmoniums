@@ -24,6 +24,14 @@ class World(object):
 		entity.world = self
 		self.move_entity(entity, locx, locy)
 
+	def remove_entity(self, entity):
+		old_loc = self.get_location(entity)
+		if old_loc is not None:
+			self.loc_to_entities[old_loc].remove(entity)
+		self.entities.remove(entity)
+		del self.entity_to_loc[entity]
+		
+
 	def get_location(self, entity):
 		return self.entity_to_loc.get(entity, None)
 
@@ -48,7 +56,7 @@ class World(object):
 
 	def turn(self):
 		actions = [] # [ (actor, action) ... ]
-		for entity in self.entities:
+		for entity in self.entities.copy():
 			action = entity.turn()
 			if action is not None:
 				actions.append((entity, action)) 
@@ -105,7 +113,7 @@ class SoundSource(Entity):
 	def __init__(self):
 		super(SoundSource, self).__init__()
 		self.playing = False
-		self.strength = 30
+		self.strength = 100
 
 	def get_action(self):
 		if not self.playing:
@@ -153,10 +161,14 @@ class SimpleHarmonium(Entity):
 	def turn(self):
 		action = super(SimpleHarmonium, self).turn()
 		x, y = self.get_location()
-		self.current_energy += self.world.get_energy(x, y) - 1
-		if self.current_energy <= -10 or self.current_energy >= 100:
-			self.is_alive = False
+		self.current_energy += self.world.get_energy(x, y) - 2
+		if self.current_energy <= -30 or self.current_energy >= 1000:
+			self.die()
 		return action
+
+	def die(self):
+		self.is_alive = False
+		# self.world.remove_entity(self)
 
 	def get_action(self):
 		if not self.is_alive:
@@ -164,7 +176,7 @@ class SimpleHarmonium(Entity):
 		
 		if self.is_unhappy():
 			potential_gains = self.get_neighbor_vals() # {[up/down/left/right] => diff in sound_val}
-			best = (0, None) # Will go after any improvement because 0
+			best = (-1, None) # Will go after any improvement because -1
 			for change, gain in potential_gains.items():
 				if gain > best[0]:
 					best = gain, change
@@ -192,6 +204,9 @@ class SimpleHarmonium(Entity):
 
 	def handle_action(self, action):
 
+		if not self.is_alive :
+			return
+
 		x, y = self.get_location()
 		newx, newy = x,y
 
@@ -207,10 +222,10 @@ class SimpleHarmonium(Entity):
 			newy += 1
 		elif action == "flake":
 			impart = 0.1*self.current_energy
-			self.current_energy -= impart*2
+			self.current_energy -= impart*1
 			baby = SimpleHarmonium()
 			baby.current_energy = impart
-			self.world.add_entity(baby, x-1, y)
+			self.world.add_entity(baby, x, y)
 		elif action == "sit":
 			pass;
 		

@@ -4,9 +4,16 @@ SCALE = 10
 def state_to_image(state):
 	width = state["width"]
 	entity_states = state["entities"]
+	sound_strength = state["sound_strength"]
 
 	img = Image.new('RGB', (width, width))
 	img_data = img.load()
+
+	for x in xrange(width):
+		for y in xrange(width):
+			sound_val = sound_strength[(x,y)]
+			rate = int(min(1, sound_val / 50)*255)
+			img_data[x,y] = (rate, rate, rate)
 
 	for entity in entity_states:
 		name = entity["name"]
@@ -53,14 +60,14 @@ def main():
 	wrld.add_entity(world.SimpleHarmonium(), 25, 10) # add a harmonium 
 	wrld.add_entity(world.SimpleHarmonium(), 25, 25) # add a harmonium close
 
-	TURNS = 150
-	jump = 2
+	TURNS = 4000
+	jump = 8
 	for i in xrange(TURNS):
 		wrld.turn()
 		if i % jump == 0:
 			state = wrld.get_state()
 			image = state_to_image(state) # maybe edit image
-			image.save("test_{}.png".format(str(i).zfill(3)), "PNG")
+			image.save("test_{}.png".format(str(i).zfill(4)), "PNG")
 
 if __name__ == "__main__":
 	main()
