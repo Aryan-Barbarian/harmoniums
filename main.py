@@ -1,6 +1,6 @@
 import world
 from PIL import Image
-
+SCALE = 10
 def state_to_image(state):
 	width = state["width"]
 	entity_states = state["entities"]
@@ -24,6 +24,7 @@ def state_to_image(state):
 		if newcolor is not None:
 			img_data[x,y] = newcolor
 
+	img = img.resize( (width*SCALE, width*SCALE))
 	return img
 
 def state_to_text(state):
@@ -49,19 +50,17 @@ def main():
 	WIDTH = 40
 	wrld = world.World(WIDTH) # TODO: args
 	wrld.add_entity(world.SoundSource(), 30, 30) # add a sound source at (30, 30)
-	wrld.add_entity(world.SimpleHarmonium(), 25, 30) # add a harmonium 
-	wrld.add_entity(world.SimpleHarmonium(), 29, 30) # add a harmonium close
+	wrld.add_entity(world.SimpleHarmonium(), 25, 10) # add a harmonium 
+	wrld.add_entity(world.SimpleHarmonium(), 25, 25) # add a harmonium close
 
-	TURNS = 20
-
+	TURNS = 150
+	jump = 2
 	for i in xrange(TURNS):
 		wrld.turn()
-		state = wrld.get_state()
-		# print(state_to_text(state))
-		# print(state)
-		print("*"*WIDTH)
-		image = state_to_image(state) # maybe edit image
-		image.save("test_{}.png".format(i), "PNG")
+		if i % jump == 0:
+			state = wrld.get_state()
+			image = state_to_image(state) # maybe edit image
+			image.save("test_{}.png".format(str(i).zfill(3)), "PNG")
 
 if __name__ == "__main__":
 	main()
