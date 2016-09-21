@@ -37,18 +37,29 @@ class World(object):
 			self.loc_to_entities[new_loc] = set()
 		self.loc_to_entities[new_loc].add(entity)
 
-		self.entity_to_loc = new_loc
+		self.entity_to_loc[entity] = new_loc
 
 	def add_sound(self, locx, locy, sound_val):
-		self.sound_strength[(locx, locy)] += sound_val
+		loc_key = (locx, locy)
+		self.sound_strength[loc_key] = self.sound_strength.get(loc_key, 0) + sound_val
 
+	def get_energy(self, locx, locy):
+		return self.sound_strength.get((locx, locy), 0)
 
 	def turn(self):
 		actions = [] # [ (actor, action) ... ]
 		for entity in self.entities:
 			action = entity.turn()
 			entity.handle_action(action)
-			actions.add((entity, action)) if action is not None
+			if action is not None:
+				actions.append((entity, action)) 
+
+	def valid_location(self, locx, locy):
+		if locx < 0 or locx >= self.width:
+			return False
+		if locy < 0 or locy >= self.width:
+			return False
+		return True
 
 
 ######################################################
@@ -81,15 +92,16 @@ class Entity(object):
 	def get_state(self):
 		state = {"name" : self.get_name()}
 		location = self.get_location()
-		state["location"] = location if location is not None
+		if location is not None:
+			state["location"] = location
 		return state
 
 class SoundSource(Entity):
 
 	def __init__(self):
 		super(SoundSource, self).__init__()
-		self.playing = True
-		self.strength = 100
+		self.playing = False
+		self.strength = 10
 
 	def get_action(self):
 		if not self.playing:
@@ -97,9 +109,6 @@ class SoundSource(Entity):
 
 	def get_name(self):
 		return "soundsource"
-
-	def turn(self):
-		return self.get_action()
 
 	def handle_action(self, action):
 		modifier = 0
@@ -117,7 +126,7 @@ class SoundSource(Entity):
 				dx2 = (x - otherx)**2
 				for othery in xrange(width):
 					dy2 = (y - othery)**2
-					to_add = self.strength / (dx2 + dy2)
+					to_add = float(self.strength) / max(0.00001, (dx2 + dy2))
 					self.world.add_sound(modifier*otherx, othery, to_add)
 
 	def get_state(self):
@@ -128,26 +137,48 @@ class SoundSource(Entity):
 
 class SimpleHarmonium(Entity):
 	"""docstring for SimpleHarmonium"""
-	def __init__(self, arg):
+	def __init__(self):
 		super(SimpleHarmonium, self).__init__()
 		self.current_energy = 5
+		self.is_alive = True
 
 	def is_unhappy(self):
 		return self.current_energy < 0
 
+	def turn(self):
+		action = super(SimpleHarmonium, self).turn()
+		x, y = self.get_location()
+		self.current_energy += self.world.get_energy(x, y) - 1
+		return action
+
 	def get_action(self):
+		if not self.is_alive:
+			return None
+		if self.current_energy <= -10:
+			return "die"
 		if self.is_unhappy():
 			potential_gains = self.get_neighbor_vals() # {[up/down/left/right] => diff in sound_val}
 			best = (0, None) # Will go after any improvement because 0
 			for change, gain in potential_gains.items():
 				if gain > best[0]:
-					gain, change
+					best = gain, change
 			if best[1] is not None:
 				return "move {}".format(best[1])
+
 		elif self.current_energy >= 20:
 			return "flake"
 		else:
 			return "sit"
+
+	def get_neighbor_vals(self):
+		x,y = self.get_location()
+		curr_rate = self.world.get_energy(x,y)
+		gains = dict()
+		gains["up"] = self.world.get_energy(x, y+1) - curr_rate
+		gains["down"] = self.world.get_energy(x, y-1) - curr_rate
+		gains["left"] = self.world.get_energy(x-1, y) - curr_rate
+		gains["right"] = self.world.get_energy(x+1, y) - curr_rate
+		return gains
 
 	def handle_action(self, action):
 
@@ -168,6 +199,8 @@ class SimpleHarmonium(Entity):
 			pass;
 		elif action == "sit":
 			pass;
+		elif action == "die":
+			self.is_alive = False
 		
 		if (x != newx or y != newy):
 			self.world.move_entity(self, newx, newy)
@@ -178,5 +211,6 @@ class SimpleHarmonium(Entity):
 	def get_state(self):
 		state = super(SimpleHarmonium, self).get_state()
 		state["current_energy"] = self.current_energy
+		state["is_alive"] = self.is_alive
 		return state
 		
